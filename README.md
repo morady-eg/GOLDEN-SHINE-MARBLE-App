@@ -1,1 +1,2 @@
-# GOLDEN-SHINE-MARBLE-App
+# GOLDEN SHINE MARBLE
+Android Native Application

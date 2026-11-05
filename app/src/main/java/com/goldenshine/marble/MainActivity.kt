@@ -15,6 +15,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -137,7 +139,7 @@ private fun GoldenShineApp() {
                 }
             }) { pad ->
                 when (screen) {
-                    "form" -> DocumentForm(Modifier.padding(pad), editing) { id, kind, client, phone, title, lines, vat, rate, notes, meta ->
+                    "form" -> DocumentForm(Modifier.padding(pad), editing, docs) { id, kind, client, phone, title, lines, vat, rate, notes, meta ->
                         scope.launch {
                             runCatching { repo.save(id, kind, client, phone, title, lines, vat, rate, notes, meta) }
                                 .onSuccess { editing = null; refresh++; screen = "list"; Toast.makeText(context, "تم حفظ المستند", Toast.LENGTH_LONG).show() }
@@ -201,7 +203,7 @@ private fun HomeScreen(modifier: Modifier, onNew: () -> Unit, onList: () -> Unit
 }
 
 @Composable
-private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, save: (Long?, DocumentKind, String, String, String, List<DocumentLineInput>, Boolean, Double, String, String) -> Unit) {
+private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, knownDocuments: List<BusinessDocumentEntity>, save: (Long?, DocumentKind, String, String, String, List<DocumentLineInput>, Boolean, Double, String, String) -> Unit) {
     var kind by remember(doc?.id) { mutableStateOf(if (doc?.kind == "CONTRACT") DocumentKind.CONTRACT else DocumentKind.QUOTATION) }
     var client by remember(doc?.id) { mutableStateOf(doc?.clientName ?: "") }
     var phone by remember(doc?.id) { mutableStateOf(doc?.clientPhone ?: "") }
@@ -244,6 +246,20 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, save:
             FilterChip(kind == DocumentKind.QUOTATION, { kind = DocumentKind.QUOTATION }, enabled = doc == null, label = { Text("عرض سعر") })
             FilterChip(kind == DocumentKind.CONTRACT, { kind = DocumentKind.CONTRACT }, enabled = doc == null, label = { Text("عقد مقاولة") })
         } }
+        if (knownDocuments.isNotEmpty() && doc == null) item {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text("اختيار عميل سابق", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(knownDocuments.distinctBy { it.clientName }.take(12)) { previous ->
+                        FilterChip(selected = client == previous.clientName, onClick = {
+                            client = previous.clientName
+                            phone = previous.clientPhone
+                            if (recipient.isBlank()) recipient = previous.clientName
+                        }, label = { Text(previous.clientName) })
+                    }
+                }
+            }
+        }
         item { Field("اسم العميل *", client) { client = it } }
         item { Field("السادة /", recipient) { recipient = it } }
         item { Field("عناية /", attention) { attention = it } }
@@ -321,10 +337,19 @@ private fun Field(label: String, value: String, keyboard: KeyboardType = Keyboar
 @Composable
 private fun DocumentList(modifier: Modifier, docs: List<BusinessDocumentEntity>, onEdit: (BusinessDocumentEntity) -> Unit, onDelete: (Long) -> Unit, onPdf: (BusinessDocumentEntity, String) -> Unit, onShare: (BusinessDocumentEntity) -> Unit) {
     var query by remember { mutableStateOf("") }
-    val filtered = docs.filter { it.clientName.contains(query, true) || it.documentNumber.contains(query, true) }
+    var statusFilter by remember { mutableStateOf("ALL") }
+    val filtered = docs.filter {
+        (it.clientName.contains(query, true) || it.documentNumber.contains(query, true)) &&
+            (statusFilter == "ALL" || runCatching { org.json.JSONObject(it.quotationMetaJson).optString("status", "DRAFT") }.getOrDefault("DRAFT") == statusFilter)
+    }
     Column(modifier.fillMaxSize().padding(16.dp)) {
         Text("أرشيف المستندات", color = MaterialTheme.colorScheme.primary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         OutlinedTextField(query, { query = it }, label = { Text("بحث بالعميل أو رقم المستند") }, modifier = Modifier.fillMaxWidth())
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            listOf("ALL" to "الكل", "DRAFT" to "مسودة", "SENT" to "مرسل", "APPROVED" to "معتمد", "REJECTED" to "مرفوض", "EXPIRED" to "منتهي").forEach { (value, label) ->
+                item { FilterChip(selected = statusFilter == value, onClick = { statusFilter = value }, label = { Text(label) }) }
+            }
+        }
         if (filtered.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("لا توجد مستندات محفوظة", color = Muted) }
         else LazyColumn(verticalArrangement = Arrangement.spacedBy(9.dp)) {
             itemsIndexed(filtered, key = { _, d -> d.id }) { _, d ->
@@ -336,6 +361,8 @@ private fun DocumentList(modifier: Modifier, docs: List<BusinessDocumentEntity>,
                         Text("عدد البنود: " + runCatching { JSONArray(d.linesJson).length() }.getOrDefault(0), color = Muted)
                         val statusLabel = runCatching { org.json.JSONObject(d.quotationMetaJson).optString("status", "DRAFT") }.getOrDefault("DRAFT")
                         Text("الحالة: " + mapOf("DRAFT" to "مسودة", "SENT" to "مرسل", "APPROVED" to "معتمد", "REJECTED" to "مرفوض", "EXPIRED" to "منتهي")[statusLabel].orEmpty(), color = MaterialTheme.colorScheme.primary)
+                        val revisions = runCatching { org.json.JSONObject(d.quotationMetaJson).optJSONArray("history")?.length() ?: 0 }.getOrDefault(0)
+                        if (revisions > 0) Text("سجل الإصدارات السابقة: $revisions", color = Muted)
                         Text("الإجمالي: %.2f ج.م".format(d.total), color = Color.White)
                         Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                             TextButton(onClick = { onEdit(d) }) { Text("تعديل") }

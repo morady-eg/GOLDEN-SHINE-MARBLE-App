@@ -291,7 +291,12 @@ object DocumentPdfExporter {
         y += 8f
         if (y > CONTENT_BOTTOM - 130f) nextPage()
         val summaryX = if (ar) right else left
-        text((if (ar) "الإجمالي قبل الضريبة: " else "Subtotal: ") + money(document.subtotal) + if (ar) " ج.م" else " EGP", summaryX, y, body); y += 19f
+        text((if (ar) "الإجمالي قبل الخصم: " else "Subtotal before discount: ") + money(document.subtotal) + if (ar) " ج.م" else " EGP", summaryX, y, body); y += 19f
+        val discountAmount = meta.optDouble("discountAmount", 0.0)
+        if (discountAmount > 0.0) {
+            text((if (ar) "الخصم: -" else "Discount: -") + money(discountAmount) + if (ar) " ج.م" else " EGP", summaryX, y, body)
+            y += 19f
+        }
         text((if (ar) "ضريبة القيمة المضافة (" else "VAT (") + number(document.vatRate) + "%): " + money(document.vatAmount) + if (ar) " ج.م" else " EGP", summaryX, y, body); y += 22f
         text((if (ar) "الإجمالي النهائي: " else "GRAND TOTAL: ") + money(document.total) + if (ar) " جنيه مصري" else " EGP", summaryX, y, bold); y += 25f
         text(if (ar) "الشروط والأحكام العامة" else "GENERAL TERMS & CONDITIONS", summaryX, y, bold); y += 18f

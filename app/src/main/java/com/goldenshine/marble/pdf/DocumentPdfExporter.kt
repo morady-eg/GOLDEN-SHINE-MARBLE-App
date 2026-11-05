@@ -14,6 +14,9 @@ import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import com.goldenshine.marble.data.BusinessDocumentEntity
+import com.goldenshine.marble.domain.AmountInWords
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
 import org.json.JSONArray
 import java.io.File
 import java.text.NumberFormat
@@ -299,6 +302,29 @@ object DocumentPdfExporter {
         }
         text((if (ar) "ضريبة القيمة المضافة (" else "VAT (") + number(document.vatRate) + "%): " + money(document.vatAmount) + if (ar) " ج.م" else " EGP", summaryX, y, body); y += 22f
         text((if (ar) "الإجمالي النهائي: " else "GRAND TOTAL: ") + money(document.total) + if (ar) " جنيه مصري" else " EGP", summaryX, y, bold); y += 25f
+        if (y > CONTENT_BOTTOM - 75f) nextPage()
+        val amountWords = if (ar) AmountInWords.egyptianPounds(document.total)
+            else AmountInWords.englishEgyptianPounds(document.total)
+        val amountBox = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.rgb(250, 246, 234)
+            style = Paint.Style.FILL
+        }
+        val amountBorder = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = gold
+            style = Paint.Style.STROKE
+            strokeWidth = 1f
+        }
+        val amountPaint = Paint(body).apply {
+            color = android.graphics.Color.rgb(126, 91, 24)
+            textSize = 10.5f
+            typeface = Typeface.create("sans-serif", Typeface.BOLD)
+        }
+        canvas.drawRoundRect(RectF(left, y - 14f, right, y + 43f), 5f, 5f, amountBox)
+        canvas.drawRoundRect(RectF(left, y - 14f, right, y + 43f), 5f, 5f, amountBorder)
+        text(if (ar) "المبلغ النهائي بالحروف:" else "AMOUNT IN WORDS:", if (ar) right - 10f else left + 10f, y, amountPaint)
+        y += 17f
+        wrapped(amountWords, if (ar) right - 10f else left + 10f, 88, amountPaint)
+        y += 22f
         text(if (ar) "الشروط والأحكام العامة" else "GENERAL TERMS & CONDITIONS", summaryX, y, bold); y += 18f
         val terms = mutableListOf<String>()
         terms += if (ar) "1. السعر ${if (document.vatTreatment == "ADD_TO_TOTAL") "شامل" else "غير شامل"} ضريبة القيمة المضافة." else "1. VAT is ${if (document.vatTreatment == "ADD_TO_TOTAL") "included" else "excluded"} as stated above."
@@ -316,9 +342,35 @@ object DocumentPdfExporter {
         y += 8f
         if (y > CONTENT_BOTTOM - 70f) nextPage()
         text(if (ar) "وتفضلوا بقبول فائق الاحترام والتقدير" else "Yours faithfully,", center, y, body, Paint.Align.CENTER); y += 35f
-        text(if (ar) "مدير عام الشركة" else "General Manager", if (ar) right else left, y, body)
+        val signatureX = if (ar) right else left
+        text(if (ar) "مدير عام الشركة" else "General Manager", signatureX, y, body)
         y += 18f
-        text(if (ar) "م/ يوسف موسى" else "Eng. Youssef Mousa", if (ar) right else left, y, body)
+        text(if (ar) "م/ يوسف موسى" else "Eng. Youssef Mousa", signatureX, y, body)
+        if (meta.optBoolean("includeQr", true)) {
+            runCatching {
+                val qrPayload = org.json.JSONObject()
+                    .put("company", "GOLDEN SHINE MARBLE")
+                    .put("document_number", document.documentNumber)
+                    .put("client", document.clientName)
+                    .put("date", java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(java.util.Date(document.createdAt)))
+                    .put("subtotal_egp", document.subtotal)
+                    .put("vat_egp", document.vatAmount)
+                    .put("total_egp", document.total)
+                    .toString()
+                val dimension = 76
+                val matrix = QRCodeWriter().encode(qrPayload, BarcodeFormat.QR_CODE, dimension, dimension)
+                val qrBitmap = Bitmap.createBitmap(dimension, dimension, Bitmap.Config.ARGB_8888)
+                for (qx in 0 until dimension) for (qy in 0 until dimension) {
+                    qrBitmap.setPixel(qx, qy, if (matrix[qx, qy]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+                }
+                val qrX = if (ar) left else right - dimension
+                val qrY = (y - 38f).coerceAtLeast(CONTENT_TOP + 12f)
+                canvas.drawBitmap(qrBitmap, qrX, qrY, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+                qrBitmap.recycle()
+                text(if (ar) "رمز QR لبيانات العرض" else "QUOTATION QR DATA",
+                    qrX + dimension / 2f, qrY + dimension + 12f, small, Paint.Align.CENTER)
+            }
+        }
         text((if (ar) "صفحة " else "Page ") + pageNo, right, 800f, small, Paint.Align.RIGHT)
         pdf.finishPage(page)
         letterhead?.recycle()

@@ -2,6 +2,7 @@ package com.goldenshine.marble.data
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 
@@ -22,9 +23,15 @@ interface BusinessDocumentDao {
     @Insert
     suspend fun insert(document: BusinessDocumentEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(documents: List<BusinessDocumentEntity>)
+
     @Update
     suspend fun update(document: BusinessDocumentEntity)
 
     @Query("DELETE FROM business_documents WHERE id = :id")
     suspend fun delete(id: Long)
+
+    @Query("DELETE FROM business_documents")
+    suspend fun deleteAll()
 }

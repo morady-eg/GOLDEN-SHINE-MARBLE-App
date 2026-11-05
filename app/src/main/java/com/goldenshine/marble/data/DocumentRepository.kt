@@ -48,10 +48,13 @@ class DocumentRepository(private val database: GoldenShineDatabase) {
                 else -> error("نوع تسعير غير معروف")
             }
         }
+        val incomingMeta = JSONObject(quotationMetaJson)
+        val discount = incomingMeta.optDouble("discountAmount", 0.0)
         val totals = DocumentPricing.calculate(
             domainLines,
             if (addVat) VatTreatment.ADD_TO_TOTAL else VatTreatment.EXCLUDED,
-            vatRate
+            vatRate,
+            discount
         )
         val existing = id?.let { dao.getById(it) }
         require(id == null || existing != null) { "المستند المراد تعديله غير موجود" }
@@ -66,6 +69,17 @@ class DocumentRepository(private val database: GoldenShineDatabase) {
             }
         }.toString()
         val now = System.currentTimeMillis()
+        if (existing != null) {
+            val previousMeta = runCatching { JSONObject(existing.quotationMetaJson) }.getOrDefault(JSONObject())
+            val history = previousMeta.optJSONArray("history") ?: JSONArray()
+            history.put(JSONObject().put("updatedAt", existing.updatedAt)
+                .put("documentNumber", existing.documentNumber).put("clientName", existing.clientName)
+                .put("subtotal", existing.subtotal).put("vatAmount", existing.vatAmount)
+                .put("total", existing.total).put("linesJson", existing.linesJson)
+                .put("quotationMetaJson", existing.quotationMetaJson))
+            incomingMeta.put("history", history)
+            if (!incomingMeta.has("status")) incomingMeta.put("status", previousMeta.optString("status", "DRAFT"))
+        } else if (!incomingMeta.has("status")) incomingMeta.put("status", "DRAFT")
         val entity = BusinessDocumentEntity(
             id = existing?.id ?: 0,
             kind = kind.name, year = year, sequence = sequence, documentNumber = number,
@@ -74,7 +88,7 @@ class DocumentRepository(private val database: GoldenShineDatabase) {
             vatRate = vatRate, subtotal = totals.subtotal, vatAmount = totals.vat,
             total = totals.total, notes = notes.trim(),
             createdAt = existing?.createdAt ?: now, updatedAt = now,
-            quotationMetaJson = quotationMetaJson
+            quotationMetaJson = incomingMeta.toString()
         )
         if (existing == null) dao.insert(entity) else { dao.update(entity); entity.id }
     }

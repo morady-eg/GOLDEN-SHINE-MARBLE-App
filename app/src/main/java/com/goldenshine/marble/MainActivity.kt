@@ -219,6 +219,8 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, save:
     var paymentMethod by remember(doc?.id) { mutableStateOf(savedMeta.optString("paymentMethod")) }
     var warranty by remember(doc?.id) { mutableStateOf(savedMeta.optString("warranty")) }
     var exclusions by remember(doc?.id) { mutableStateOf(savedMeta.optString("exclusions")) }
+    var discountText by remember(doc?.id) { mutableStateOf(savedMeta.optString("discountAmount", "0")) }
+    var documentStatus by remember(doc?.id) { mutableStateOf(savedMeta.optString("status", "DRAFT")) }
     val lines = remember(doc?.id) {
         mutableStateListOf<LineDraft>().apply {
             if (doc == null) add(LineDraft()) else {
@@ -233,7 +235,9 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, save:
     }
     val subtotal = lines.sumOf { if (it.type == "SQM") (it.quantity.toDoubleOrNull() ?: 0.0) * (it.unitPrice.toDoubleOrNull() ?: 0.0) else it.amount.toDoubleOrNull() ?: 0.0 }
     val rate = vatRate.toDoubleOrNull() ?: 0.0
-    val vat = if (vatOn) subtotal * rate / 100.0 else 0.0
+    val discount = discountText.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+    val netSubtotal = (subtotal - discount.coerceAtMost(subtotal)).coerceAtLeast(0.0)
+    val vat = if (vatOn) netSubtotal * rate / 100.0 else 0.0
     LazyColumn(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
         item { Text(if (doc == null) "إنشاء مستند" else "تعديل " + doc.documentNumber, color = Gold, fontSize = 22.sp, fontWeight = FontWeight.Bold) }
         item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -269,11 +273,14 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, save:
             }
         }
         item { OutlinedButton(onClick = { lines.add(LineDraft()) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Add, null); Text("إضافة بند آخر") } }
+        item { Field("قيمة الخصم (اختياري)", discountText, KeyboardType.Decimal) { discountText = it } }
         item { Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(vatOn, { vatOn = it }); Text("إضافة ضريبة القيمة المضافة", color = Color.White) } }
         if (vatOn) item { Field("نسبة الضريبة %", vatRate, KeyboardType.Decimal) { vatRate = it } }
         item { Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("الإجمالي قبل الضريبة: %.2f ج.م".format(subtotal), color = Color.White)
+                Text("الإجمالي قبل الخصم: %.2f ج.م".format(subtotal), color = Color.White)
+                Text("الخصم: %.2f ج.م".format(discount), color = MaterialTheme.colorScheme.primary)
+                Text("الصافي الخاضع للضريبة: %.2f ج.م".format(netSubtotal), color = Color.White)
                 Text("الضريبة: %.2f ج.م".format(vat), color = Muted)
                 Text("الإجمالي النهائي: %.2f ج.م".format(subtotal + vat), color = Gold, fontWeight = FontWeight.Bold, fontSize = 19.sp)
             }
@@ -292,7 +299,7 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, save:
                 .put("validityDays", validityDays.toIntOrNull()?.coerceAtLeast(1) ?: 30)
                 .put("executionDuration", executionDuration.trim()).put("paymentTerms", paymentTerms.trim())
                 .put("paymentMethod", paymentMethod.trim()).put("warranty", warranty.trim())
-                .put("exclusions", exclusions.trim()).toString()
+                .put("exclusions", exclusions.trim()).put("discountAmount", discount).put("status", documentStatus).toString()
             save(doc?.id, kind, client, phone, title, lines.map { it.input() }, vatOn, rate, notes, meta)
         }, modifier = Modifier.fillMaxWidth()) { Text(if (doc == null) "حفظ المستند" else "حفظ التعديلات") } }
     }
@@ -321,6 +328,8 @@ private fun DocumentList(modifier: Modifier, docs: List<BusinessDocumentEntity>,
                         Text(d.clientName, color = Color.White, fontSize = 17.sp)
                         Text(d.title, color = Muted)
                         Text("عدد البنود: " + runCatching { JSONArray(d.linesJson).length() }.getOrDefault(0), color = Muted)
+                        val statusLabel = runCatching { org.json.JSONObject(d.quotationMetaJson).optString("status", "DRAFT") }.getOrDefault("DRAFT")
+                        Text("الحالة: " + mapOf("DRAFT" to "مسودة", "SENT" to "مرسل", "APPROVED" to "معتمد", "REJECTED" to "مرفوض", "EXPIRED" to "منتهي")[statusLabel].orEmpty(), color = MaterialTheme.colorScheme.primary)
                         Text("الإجمالي: %.2f ج.م".format(d.total), color = Color.White)
                         Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                             TextButton(onClick = { onEdit(d) }) { Text("تعديل") }

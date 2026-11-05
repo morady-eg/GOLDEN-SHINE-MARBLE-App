@@ -41,7 +41,7 @@ object DocumentPdfExporter {
         val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
             ?: run { pdf.close(); error("تعذر إنشاء ملف PDF") }
         context.contentResolver.openOutputStream(uri)?.use { pdf.writeTo(it) } ?: error("تعذر حفظ PDF")
-        if (Build.VERSION.SDK_INT >= Q) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             values.clear(); values.put(MediaStore.Downloads.IS_PENDING, 0)
             context.contentResolver.update(uri, values, null, null)
         }

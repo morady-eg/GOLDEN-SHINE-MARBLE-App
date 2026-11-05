@@ -1,6 +1,12 @@
 package com.goldenshine.marble
 
 import android.os.Bundle
+import android.graphics.BitmapFactory
+import android.graphics.pdf.PdfRenderer
+import android.os.ParcelFileDescriptor
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import android.content.Intent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -43,6 +49,47 @@ private data class LineDraft(var type: String = "SQM", var description: String =
     fun input() = DocumentLineInput(description, type, quantity.toDoubleOrNull() ?: 0.0, unitPrice.toDoubleOrNull() ?: 0.0, amount.toDoubleOrNull() ?: 0.0)
 }
 
+
+private fun extractLetterheadAccent(context: android.content.Context): Color {
+    val temp = File(context.cacheDir, "brand_palette_source.pdf")
+    return try {
+        context.assets.open("letterhead/golden_shine_letterhead.pdf").use { input ->
+            temp.outputStream().use { output -> input.copyTo(output) }
+        }
+        ParcelFileDescriptor.open(temp, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
+            PdfRenderer(descriptor).use { renderer ->
+                if (renderer.pageCount == 0) return Gold
+                renderer.openPage(0).use { page ->
+                    val bitmap = android.graphics.Bitmap.createBitmap(240, 340, android.graphics.Bitmap.Config.ARGB_8888)
+                    page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                    val bins = HashMap<Int, Int>()
+                    val hsv = FloatArray(3)
+                    for (y in 0 until bitmap.height step 2) for (x in 0 until bitmap.width step 2) {
+                        val pixel = bitmap.getPixel(x, y)
+                        android.graphics.Color.colorToHSV(pixel, hsv)
+                        if (hsv[1] > 0.28f && hsv[2] > 0.28f && hsv[2] < 0.96f) {
+                            val key = ((android.graphics.Color.red(pixel) shr 3) shl 10) or
+                                ((android.graphics.Color.green(pixel) shr 3) shl 5) or
+                                (android.graphics.Color.blue(pixel) shr 3)
+                            bins[key] = (bins[key] ?: 0) + 1
+                        }
+                    }
+                    val dominant = bins.maxByOrNull { it.value }?.key ?: return Gold
+                    val red = ((dominant shr 10) and 31) * 255 / 31
+                    val green = ((dominant shr 5) and 31) * 255 / 31
+                    val blue = (dominant and 31) * 255 / 31
+                    bitmap.recycle()
+                    Color(android.graphics.Color.rgb(red, green, blue))
+                }
+            }
+        }
+    } catch (_: Exception) {
+        Gold
+    } finally {
+        temp.delete()
+    }
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); setContent { GoldenShineApp() } }
 }
@@ -51,6 +98,9 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun GoldenShineApp() {
     val context = LocalContext.current
+    val brandAccent by produceState(initialValue = Gold, context) {
+        value = withContext(Dispatchers.IO) { extractLetterheadAccent(context) }
+    }
     val repo = remember { DocumentRepository(GoldenShineDatabase.get(context)) }
     val scope = rememberCoroutineScope()
     var screen by remember { mutableStateOf("home") }
@@ -75,10 +125,10 @@ private fun GoldenShineApp() {
         }
     }
     LaunchedEffect(refresh) { docs = repo.all() }
-    MaterialTheme(colorScheme = darkColorScheme(primary = Gold, secondary = Gold, background = Ink, surface = Panel, onPrimary = Ink, onBackground = Color.White, onSurface = Color.White)) {
+    MaterialTheme(colorScheme = darkColorScheme(primary = brandAccent, secondary = brandAccent, background = Ink, surface = Panel, onPrimary = Ink, onBackground = Color.White, onSurface = Color.White)) {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
             Scaffold(containerColor = Ink, topBar = {
-                TopAppBar(title = { Text("GOLDEN SHINE MARBLE", color = Gold, fontWeight = FontWeight.Bold, fontSize = 17.sp) }, colors = TopAppBarDefaults.topAppBarColors(containerColor = Ink))
+                TopAppBar(title = { Text("GOLDEN SHINE MARBLE", color = brandAccent, fontWeight = FontWeight.Bold, fontSize = 17.sp) }, colors = TopAppBarDefaults.topAppBarColors(containerColor = Ink))
             }, bottomBar = {
                 NavigationBar(containerColor = Panel) {
                     NavigationBarItem(screen == "home", { screen = "home" }, icon = { Text("⌂") }, label = { Text("الرئيسية") })
@@ -252,7 +302,7 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, save:
 private fun Field(label: String, value: String, keyboard: KeyboardType = KeyboardType.Text, change: (String) -> Unit) {
     OutlinedTextField(value, change, label = { Text(label) }, modifier = Modifier.fillMaxWidth(), singleLine = keyboard != KeyboardType.Text,
         keyboardOptions = KeyboardOptions(keyboardType = keyboard),
-        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Gold, focusedLabelColor = Gold, unfocusedBorderColor = Muted, focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, focusedLabelColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = Muted, focusedTextColor = Color.White, unfocusedTextColor = Color.White))
 }
 
 @Composable

@@ -87,9 +87,9 @@ private fun GoldenShineApp() {
                 }
             }) { pad ->
                 when (screen) {
-                    "form" -> DocumentForm(Modifier.padding(pad), editing) { id, kind, client, phone, title, lines, vat, rate, notes ->
+                    "form" -> DocumentForm(Modifier.padding(pad), editing) { id, kind, client, phone, title, lines, vat, rate, notes, meta ->
                         scope.launch {
-                            runCatching { repo.save(id, kind, client, phone, title, lines, vat, rate, notes) }
+                            runCatching { repo.save(id, kind, client, phone, title, lines, vat, rate, notes, meta) }
                                 .onSuccess { editing = null; refresh++; screen = "list"; Toast.makeText(context, "تم حفظ المستند", Toast.LENGTH_LONG).show() }
                                 .onFailure { Toast.makeText(context, it.message ?: "تعذر الحفظ", Toast.LENGTH_LONG).show() }
                         }
@@ -151,7 +151,7 @@ private fun HomeScreen(modifier: Modifier, onNew: () -> Unit, onList: () -> Unit
 }
 
 @Composable
-private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, save: (Long?, DocumentKind, String, String, String, List<DocumentLineInput>, Boolean, Double, String) -> Unit) {
+private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, save: (Long?, DocumentKind, String, String, String, List<DocumentLineInput>, Boolean, Double, String, String) -> Unit) {
     var kind by remember(doc?.id) { mutableStateOf(if (doc?.kind == "CONTRACT") DocumentKind.CONTRACT else DocumentKind.QUOTATION) }
     var client by remember(doc?.id) { mutableStateOf(doc?.clientName ?: "") }
     var phone by remember(doc?.id) { mutableStateOf(doc?.clientPhone ?: "") }
@@ -159,6 +159,16 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, save:
     var vatOn by remember(doc?.id) { mutableStateOf(doc?.vatTreatment == "ADD_TO_TOTAL") }
     var vatRate by remember(doc?.id) { mutableStateOf((doc?.vatRate ?: 14.0).toString()) }
     var notes by remember(doc?.id) { mutableStateOf(doc?.notes ?: "") }
+    val savedMeta = remember(doc?.id) { runCatching { org.json.JSONObject(doc?.quotationMetaJson ?: "{}") }.getOrDefault(org.json.JSONObject()) }
+    var recipient by remember(doc?.id) { mutableStateOf(savedMeta.optString("recipient")) }
+    var attention by remember(doc?.id) { mutableStateOf(savedMeta.optString("attention")) }
+    var scopeText by remember(doc?.id) { mutableStateOf(savedMeta.optString("scope")) }
+    var validityDays by remember(doc?.id) { mutableStateOf(savedMeta.optString("validityDays", "30")) }
+    var executionDuration by remember(doc?.id) { mutableStateOf(savedMeta.optString("executionDuration")) }
+    var paymentTerms by remember(doc?.id) { mutableStateOf(savedMeta.optString("paymentTerms")) }
+    var paymentMethod by remember(doc?.id) { mutableStateOf(savedMeta.optString("paymentMethod")) }
+    var warranty by remember(doc?.id) { mutableStateOf(savedMeta.optString("warranty")) }
+    var exclusions by remember(doc?.id) { mutableStateOf(savedMeta.optString("exclusions")) }
     val lines = remember(doc?.id) {
         mutableStateListOf<LineDraft>().apply {
             if (doc == null) add(LineDraft()) else {
@@ -181,9 +191,13 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, save:
             FilterChip(kind == DocumentKind.CONTRACT, { kind = DocumentKind.CONTRACT }, enabled = doc == null, label = { Text("عقد مقاولة") })
         } }
         item { Field("اسم العميل *", client) { client = it } }
+        item { Field("السادة /", recipient) { recipient = it } }
+        item { Field("عناية /", attention) { attention = it } }
         item { Field("رقم الهاتف", phone, KeyboardType.Phone) { phone = it } }
         item { Field("عنوان المستند / المشروع", title) { title = it } }
-        item { Text("بنود الأعمال", color = Gold, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
+        item { Text("نطاق العمل", color = Gold, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
+        item { Field("كل بند في سطر مستقل", scopeText) { scopeText = it } }
+        item { Text("بنود العرض المالي", color = Gold, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
         itemsIndexed(lines) { index, line ->
             Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -214,8 +228,23 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, save:
                 Text("الإجمالي النهائي: %.2f ج.م".format(subtotal + vat), color = Gold, fontWeight = FontWeight.Bold, fontSize = 19.sp)
             }
         } }
-        item { Field("ملاحظات", notes) { notes = it } }
-        item { Button(onClick = { save(doc?.id, kind, client, phone, title, lines.map { it.input() }, vatOn, rate, notes) }, modifier = Modifier.fillMaxWidth()) { Text(if (doc == null) "حفظ المستند" else "حفظ التعديلات") } }
+        item { Text("الشروط والأحكام الإضافية", color = Gold, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
+        item { Field("صلاحية العرض بالأيام", validityDays, KeyboardType.Number) { validityDays = it } }
+        item { Field("مدة التنفيذ", executionDuration) { executionDuration = it } }
+        item { Field("شروط ومواعيد السداد", paymentTerms) { paymentTerms = it } }
+        item { Field("طريقة الدفع", paymentMethod) { paymentMethod = it } }
+        item { Field("مدة الضمان (اختياري)", warranty) { warranty = it } }
+        item { Field("الأعمال غير المشمولة (اختياري)", exclusions) { exclusions = it } }
+        item { Field("ملاحظات إضافية", notes) { notes = it } }
+        item { Button(onClick = {
+            val meta = org.json.JSONObject().put("recipient", recipient.trim())
+                .put("attention", attention.trim()).put("scope", scopeText.trim())
+                .put("validityDays", validityDays.toIntOrNull()?.coerceAtLeast(1) ?: 30)
+                .put("executionDuration", executionDuration.trim()).put("paymentTerms", paymentTerms.trim())
+                .put("paymentMethod", paymentMethod.trim()).put("warranty", warranty.trim())
+                .put("exclusions", exclusions.trim()).toString()
+            save(doc?.id, kind, client, phone, title, lines.map { it.input() }, vatOn, rate, notes, meta)
+        }, modifier = Modifier.fillMaxWidth()) { Text(if (doc == null) "حفظ المستند" else "حفظ التعديلات") } }
     }
 }
 

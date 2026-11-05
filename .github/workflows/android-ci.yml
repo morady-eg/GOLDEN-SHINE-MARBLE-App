@@ -32,7 +32,6 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - name: Publish APK release for manual runs
-        if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-v1.1.${{ github.run_number }}

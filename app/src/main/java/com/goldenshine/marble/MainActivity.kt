@@ -1,6 +1,7 @@
 package com.goldenshine.marble
 
 import android.os.Bundle
+import android.content.Intent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -97,8 +98,22 @@ private fun GoldenShineApp() {
                         onEdit = { editing = it; screen = "form" },
                         onDelete = { scope.launch { repo.delete(it); refresh++ } },
                         onPdf = { doc, lang -> runCatching { DocumentPdfExporter.save(context, doc, lang) }
-                            .onSuccess { Toast.makeText(context, "تم حفظ " + it + " في التنزيلات", Toast.LENGTH_LONG).show() }
-                            .onFailure { Toast.makeText(context, it.message ?: "تعذر إنشاء PDF", Toast.LENGTH_LONG).show() } })
+                            .onSuccess { uri ->
+                                Toast.makeText(context, "تم إنشاء ملف PDF وفتحه للمعاينة", Toast.LENGTH_LONG).show()
+                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/pdf").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) }
+                                    .onFailure { Toast.makeText(context, "تم حفظ الملف، لكن لا يوجد تطبيق لعرض PDF", Toast.LENGTH_LONG).show() }
+                            }
+                            .onFailure { Toast.makeText(context, it.message ?: "تعذر إنشاء PDF", Toast.LENGTH_LONG).show() },
+                        onShare = { doc -> runCatching { DocumentPdfExporter.save(context, doc, "ar") }
+                            .onSuccess { uri ->
+                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "application/pdf"
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(Intent.createChooser(intent, "مشاركة عرض السعر / العقد"))
+                            }
+                            .onFailure { Toast.makeText(context, it.message ?: "تعذرت مشاركة PDF", Toast.LENGTH_LONG).show() } })
                     else -> HomeScreen(Modifier.padding(pad),
                         onNew = { editing = null; screen = "form" }, onList = { screen = "list"; refresh++ },
                         onBackup = { scope.launch { runCatching { repo.exportBackup() }.onSuccess { backupText = it; backupPicker.launch("GoldenShine-Backup.json") }.onFailure { Toast.makeText(context, it.message ?: "تعذر تجهيز النسخة", Toast.LENGTH_LONG).show() } } },
@@ -212,7 +227,7 @@ private fun Field(label: String, value: String, keyboard: KeyboardType = Keyboar
 }
 
 @Composable
-private fun DocumentList(modifier: Modifier, docs: List<BusinessDocumentEntity>, onEdit: (BusinessDocumentEntity) -> Unit, onDelete: (Long) -> Unit, onPdf: (BusinessDocumentEntity, String) -> Unit) {
+private fun DocumentList(modifier: Modifier, docs: List<BusinessDocumentEntity>, onEdit: (BusinessDocumentEntity) -> Unit, onDelete: (Long) -> Unit, onPdf: (BusinessDocumentEntity, String) -> Unit, onShare: (BusinessDocumentEntity) -> Unit) {
     var query by remember { mutableStateOf("") }
     val filtered = docs.filter { it.clientName.contains(query, true) || it.documentNumber.contains(query, true) }
     Column(modifier.fillMaxSize().padding(16.dp)) {
@@ -232,6 +247,7 @@ private fun DocumentList(modifier: Modifier, docs: List<BusinessDocumentEntity>,
                             TextButton(onClick = { onEdit(d) }) { Text("تعديل") }
                             TextButton(onClick = { onPdf(d, "ar") }) { Icon(Icons.Default.PictureAsPdf, null); Text("PDF عربي") }
                             TextButton(onClick = { onPdf(d, "en") }) { Text("English PDF") }
+                            TextButton(onClick = { onShare(d) }) { Text("مشاركة") }
                             TextButton(onClick = { onDelete(d.id) }) { Icon(Icons.Default.Delete, null); Text("حذف") }
                         }
                     }

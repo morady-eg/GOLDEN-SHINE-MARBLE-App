@@ -35,7 +35,10 @@ object AmountInWords {
             2 -> "قرشان"
             else -> "${arabicNumber(piasters.toLong())} قرشًا"
         }
-        return listOf(poundText, piasterText).filter { it.isNotBlank() }.joinToString(" و") + " فقط لا غير"
+        val parts = mutableListOf<String>()
+        if (pounds > 0 || piasters == 0) parts += poundText
+        if (piasters > 0) parts += piasterText
+        return parts.joinToString(" و") + " فقط لا غير"
     }
 
     fun englishEgyptianPounds(amount: Double): String {
@@ -55,7 +58,10 @@ object AmountInWords {
             1 -> "One piastre"
             else -> "${englishNumber(piasters.toLong())} piastres"
         }
-        return listOf(poundText, piasterText).filter { it.isNotBlank() }.joinToString(" and ") + " only"
+        val parts = mutableListOf<String>()
+        if (pounds > 0 || piasters == 0) parts += poundText
+        if (piasters > 0) parts += piasterText
+        return parts.joinToString(" and ") + " only"
     }
 
     private fun arabicNumber(value: Long): String {

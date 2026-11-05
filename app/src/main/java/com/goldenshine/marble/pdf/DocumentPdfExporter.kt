@@ -1,6 +1,7 @@
 package com.goldenshine.marble.pdf
 
 import android.content.ContentValues
+import android.net.Uri
 import android.content.Context
 import android.graphics.Paint
 import android.graphics.Typeface
@@ -13,7 +14,7 @@ import java.text.NumberFormat
 import java.util.Locale
 
 object DocumentPdfExporter {
-    fun save(context: Context, document: BusinessDocumentEntity, language: String = "ar"): String {
+    fun save(context: Context, document: BusinessDocumentEntity, language: String = "ar"): Uri {
         val ar = language == "ar"
         val pdf = PdfDocument()
         val width = 595
@@ -118,7 +119,7 @@ object DocumentPdfExporter {
                 context.contentResolver.update(uri, values, null, null)
             }
         } finally { pdf.close() }
-        return filename
+        return uri
     }
 
     private fun money(value: Double) = NumberFormat.getNumberInstance(Locale.US).apply { minimumFractionDigits = 2; maximumFractionDigits = 2 }.format(value)

@@ -239,7 +239,7 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, save:
     val netSubtotal = (subtotal - discount.coerceAtMost(subtotal)).coerceAtLeast(0.0)
     val vat = if (vatOn) netSubtotal * rate / 100.0 else 0.0
     LazyColumn(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-        item { Text(if (doc == null) "إنشاء مستند" else "تعديل " + doc.documentNumber, color = Gold, fontSize = 22.sp, fontWeight = FontWeight.Bold) }
+        item { Text(if (doc == null) "إنشاء مستند" else "تعديل " + doc.documentNumber, color = MaterialTheme.colorScheme.primary, fontSize = 22.sp, fontWeight = FontWeight.Bold) }
         item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(kind == DocumentKind.QUOTATION, { kind = DocumentKind.QUOTATION }, enabled = doc == null, label = { Text("عرض سعر") })
             FilterChip(kind == DocumentKind.CONTRACT, { kind = DocumentKind.CONTRACT }, enabled = doc == null, label = { Text("عقد مقاولة") })
@@ -249,14 +249,14 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, save:
         item { Field("عناية /", attention) { attention = it } }
         item { Field("رقم الهاتف", phone, KeyboardType.Phone) { phone = it } }
         item { Field("عنوان المستند / المشروع", title) { title = it } }
-        item { Text("نطاق العمل", color = Gold, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
+        item { Text("نطاق العمل", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
         item { Field("كل بند في سطر مستقل", scopeText) { scopeText = it } }
-        item { Text("بنود العرض المالي", color = Gold, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
+        item { Text("بنود العرض المالي", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
         itemsIndexed(lines) { index, line ->
             Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("بند رقم " + (index + 1), color = Gold, modifier = Modifier.weight(1f))
+                        Text("بند رقم " + (index + 1), color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
                         if (lines.size > 1) IconButton(onClick = { lines.removeAt(index) }) { Icon(Icons.Default.Delete, "حذف", tint = Color.Red) }
                     }
                     Field("وصف بند العمل *", line.description) { line.description = it }
@@ -282,10 +282,16 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, save:
                 Text("الخصم: %.2f ج.م".format(discount), color = MaterialTheme.colorScheme.primary)
                 Text("الصافي الخاضع للضريبة: %.2f ج.م".format(netSubtotal), color = Color.White)
                 Text("الضريبة: %.2f ج.م".format(vat), color = Muted)
-                Text("الإجمالي النهائي: %.2f ج.م".format(subtotal + vat), color = Gold, fontWeight = FontWeight.Bold, fontSize = 19.sp)
+                Text("الإجمالي النهائي: %.2f ج.م".format(netSubtotal + vat), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 19.sp)
             }
         } }
-        item { Text("الشروط والأحكام الإضافية", color = Gold, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
+        item { Text("حالة العرض", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
+        item { Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            listOf("DRAFT" to "مسودة", "SENT" to "مرسل", "APPROVED" to "معتمد", "REJECTED" to "مرفوض", "EXPIRED" to "منتهي").forEach { (value, label) ->
+                FilterChip(selected = documentStatus == value, onClick = { documentStatus = value }, label = { Text(label) })
+            }
+        } }
+        item { Text("الشروط والأحكام الإضافية", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
         item { Field("صلاحية العرض بالأيام", validityDays, KeyboardType.Number) { validityDays = it } }
         item { Field("مدة التنفيذ", executionDuration) { executionDuration = it } }
         item { Field("شروط ومواعيد السداد", paymentTerms) { paymentTerms = it } }
@@ -317,14 +323,14 @@ private fun DocumentList(modifier: Modifier, docs: List<BusinessDocumentEntity>,
     var query by remember { mutableStateOf("") }
     val filtered = docs.filter { it.clientName.contains(query, true) || it.documentNumber.contains(query, true) }
     Column(modifier.fillMaxSize().padding(16.dp)) {
-        Text("أرشيف المستندات", color = Gold, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Text("أرشيف المستندات", color = MaterialTheme.colorScheme.primary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         OutlinedTextField(query, { query = it }, label = { Text("بحث بالعميل أو رقم المستند") }, modifier = Modifier.fillMaxWidth())
         if (filtered.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("لا توجد مستندات محفوظة", color = Muted) }
         else LazyColumn(verticalArrangement = Arrangement.spacedBy(9.dp)) {
             itemsIndexed(filtered, key = { _, d -> d.id }) { _, d ->
                 Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
                     Column(Modifier.padding(12.dp)) {
-                        Text(d.documentNumber, color = Gold, fontWeight = FontWeight.Bold)
+                        Text(d.documentNumber, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                         Text(d.clientName, color = Color.White, fontSize = 17.sp)
                         Text(d.title, color = Muted)
                         Text("عدد البنود: " + runCatching { JSONArray(d.linesJson).length() }.getOrDefault(0), color = Muted)

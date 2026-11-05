@@ -22,6 +22,15 @@ class AmountInWordsTest {
         assertEquals("جنيه واحد وخمسة وسبعون قرشًا فقط لا غير", AmountInWords.egyptianPounds(1.745))
     }
 
+    @Test fun handlesAmountsBelowOnePound() {
+        assertEquals("خمسة وسبعون قرشًا فقط لا غير", AmountInWords.egyptianPounds(0.75))
+    }
+
+    @Test fun formatsEnglishAmounts() {
+        assertEquals("One thousand two hundred and fifty Egyptian pounds and seventy-five piastres only",
+            AmountInWords.englishEgyptianPounds(1250.75))
+    }
+
     @Test fun handlesZero() {
         assertEquals("صفر جنيه مصري فقط لا غير", AmountInWords.egyptianPounds(0.0))
     }

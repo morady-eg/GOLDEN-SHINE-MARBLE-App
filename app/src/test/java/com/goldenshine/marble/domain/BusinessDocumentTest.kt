@@ -29,4 +29,14 @@ class BusinessDocumentTest {
     fun rejectsZeroSquareMeterQuantity() {
         DocumentPricing.calculate(listOf(DocumentLine.SquareMeter("رخام", 0.0, 500.0)), VatTreatment.EXCLUDED)
     }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsInfiniteLumpSumAmount() {
+        DocumentPricing.calculate(listOf(DocumentLine.LumpSum("رخام", Double.POSITIVE_INFINITY)), VatTreatment.EXCLUDED)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsNanVatRate() {
+        DocumentPricing.calculate(listOf(DocumentLine.LumpSum("رخام", 100.0)), VatTreatment.ADD_TO_TOTAL, Double.NaN)
+    }
 }

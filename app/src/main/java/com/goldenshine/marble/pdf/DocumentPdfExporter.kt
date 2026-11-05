@@ -36,7 +36,7 @@ object DocumentPdfExporter {
         val values = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, filename)
             put(MediaStore.Downloads.MIME_TYPE, "application/pdf")
-            if (Build.VERSION.SDK_INT >=  Q) put(MediaStore.Downloads.IS_PENDING, 1)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) put(MediaStore.Downloads.IS_PENDING, 1)
         }
         val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
             ?: run { pdf.close(); error("تعذر إنشاء ملف PDF") }

@@ -35,7 +35,8 @@ class DocumentRepository(private val database: GoldenShineDatabase) {
         lines: List<DocumentLineInput>,
         addVat: Boolean,
         vatRate: Double,
-        notes: String
+        notes: String,
+        quotationMetaJson: String = "{}"
     ): Long = database.withTransaction {
         require(clientName.isNotBlank()) { "اسم العميل مطلوب" }
         require(lines.isNotEmpty()) { "أضف بنداً واحداً على الأقل" }
@@ -72,7 +73,8 @@ class DocumentRepository(private val database: GoldenShineDatabase) {
             linesJson = linesJson, vatTreatment = if (addVat) "ADD_TO_TOTAL" else "EXCLUDED",
             vatRate = vatRate, subtotal = totals.subtotal, vatAmount = totals.vat,
             total = totals.total, notes = notes.trim(),
-            createdAt = existing?.createdAt ?: now, updatedAt = now
+            createdAt = existing?.createdAt ?: now, updatedAt = now,
+            quotationMetaJson = quotationMetaJson
         )
         if (existing == null) dao.insert(entity) else { dao.update(entity); entity.id }
     }
@@ -86,7 +88,8 @@ class DocumentRepository(private val database: GoldenShineDatabase) {
                 .put("title", d.title).put("linesJson", d.linesJson)
                 .put("vatTreatment", d.vatTreatment).put("vatRate", d.vatRate)
                 .put("subtotal", d.subtotal).put("vatAmount", d.vatAmount).put("total", d.total)
-                .put("notes", d.notes).put("createdAt", d.createdAt).put("updatedAt", d.updatedAt))
+                .put("notes", d.notes).put("createdAt", d.createdAt).put("updatedAt", d.updatedAt)
+                .put("quotationMetaJson", d.quotationMetaJson))
         }
         JSONObject().put("format", "GOLDEN_SHINE_BACKUP").put("version", 1)
             .put("documents", array).toString(2)
@@ -112,7 +115,8 @@ class DocumentRepository(private val database: GoldenShineDatabase) {
                 vatTreatment = o.getString("vatTreatment"), vatRate = o.getDouble("vatRate"),
                 subtotal = o.getDouble("subtotal"), vatAmount = o.getDouble("vatAmount"),
                 total = o.getDouble("total"), notes = o.optString("notes"),
-                createdAt = o.getLong("createdAt"), updatedAt = o.getLong("updatedAt")
+                createdAt = o.getLong("createdAt"), updatedAt = o.getLong("updatedAt"),
+                quotationMetaJson = o.optString("quotationMetaJson", "{}")
             )
         }
         dao.deleteAll()

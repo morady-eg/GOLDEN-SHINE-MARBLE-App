@@ -24,6 +24,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -47,7 +49,12 @@ private val Panel = Color(0xFF1B1D21)
 private val Gold = Color(0xFFD6AE52)
 private val Muted = Color(0xFFB8B8B8)
 
-private data class LineDraft(var type: String = "SQM", var description: String = "", var quantity: String = "1", var unitPrice: String = "0", var amount: String = "0") {
+private class LineDraft(type: String = "SQM", description: String = "", quantity: String = "1", unitPrice: String = "0", amount: String = "0") {
+    var type by mutableStateOf(type)
+    var description by mutableStateOf(description)
+    var quantity by mutableStateOf(quantity)
+    var unitPrice by mutableStateOf(unitPrice)
+    var amount by mutableStateOf(amount)
     fun input() = DocumentLineInput(description, type, quantity.toDoubleOrNull() ?: 0.0, unitPrice.toDoubleOrNull() ?: 0.0, amount.toDoubleOrNull() ?: 0.0)
 }
 
@@ -212,17 +219,9 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, known
     var vatRate by remember(doc?.id) { mutableStateOf((doc?.vatRate ?: 14.0).toString()) }
     var notes by remember(doc?.id) { mutableStateOf(doc?.notes ?: "") }
     val savedMeta = remember(doc?.id) { runCatching { org.json.JSONObject(doc?.quotationMetaJson ?: "{}") }.getOrDefault(org.json.JSONObject()) }
-    var recipient by remember(doc?.id) { mutableStateOf(savedMeta.optString("recipient")) }
     var attention by remember(doc?.id) { mutableStateOf(savedMeta.optString("attention")) }
     var scopeText by remember(doc?.id) { mutableStateOf(savedMeta.optString("scope")) }
     var validityDays by remember(doc?.id) { mutableStateOf(savedMeta.optString("validityDays", "30")) }
-    var executionDuration by remember(doc?.id) { mutableStateOf(savedMeta.optString("executionDuration")) }
-    var paymentTerms by remember(doc?.id) { mutableStateOf(savedMeta.optString("paymentTerms")) }
-    var paymentMethod by remember(doc?.id) { mutableStateOf(savedMeta.optString("paymentMethod")) }
-    var warranty by remember(doc?.id) { mutableStateOf(savedMeta.optString("warranty")) }
-    var exclusions by remember(doc?.id) { mutableStateOf(savedMeta.optString("exclusions")) }
-    var discountText by remember(doc?.id) { mutableStateOf(savedMeta.optString("discountAmount", "0")) }
-    var documentStatus by remember(doc?.id) { mutableStateOf(savedMeta.optString("status", "DRAFT")) }
     var includeQr by remember(doc?.id) { mutableStateOf(savedMeta.optBoolean("includeQr", true)) }
     val lines = remember(doc?.id) {
         mutableStateListOf<LineDraft>().apply {
@@ -238,9 +237,7 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, known
     }
     val subtotal = lines.sumOf { if (it.type == "SQM") (it.quantity.toDoubleOrNull() ?: 0.0) * (it.unitPrice.toDoubleOrNull() ?: 0.0) else it.amount.toDoubleOrNull() ?: 0.0 }
     val rate = vatRate.toDoubleOrNull() ?: 0.0
-    val discount = discountText.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
-    val netSubtotal = (subtotal - discount.coerceAtMost(subtotal)).coerceAtLeast(0.0)
-    val vat = if (vatOn) netSubtotal * rate / 100.0 else 0.0
+    val vat = if (vatOn) subtotal * rate / 100.0 else 0.0
     LazyColumn(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
         item { Text(if (doc == null) "إنشاء مستند" else "تعديل " + doc.documentNumber, color = MaterialTheme.colorScheme.primary, fontSize = 22.sp, fontWeight = FontWeight.Bold) }
         item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -255,14 +252,12 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, known
                         FilterChip(selected = client == previous.clientName, onClick = {
                             client = previous.clientName
                             phone = previous.clientPhone
-                            if (recipient.isBlank()) recipient = previous.clientName
                         }, label = { Text(previous.clientName) })
                     }
                 }
             }
         }
-        item { Field("اسم العميل *", client) { client = it } }
-        item { Field("السادة /", recipient) { recipient = it } }
+        item { Field("السادة /", client) { client = it } }
         item { Field("عناية /", attention) { attention = it } }
         item { Field("رقم الهاتف", phone, KeyboardType.Phone) { phone = it } }
         item { Field("عنوان المستند / المشروع", title) { title = it } }
@@ -290,40 +285,24 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, known
             }
         }
         item { OutlinedButton(onClick = { lines.add(LineDraft()) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Add, null); Text("إضافة بند آخر") } }
-        item { Field("قيمة الخصم (اختياري)", discountText, KeyboardType.Decimal) { discountText = it } }
         item { Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(vatOn, { vatOn = it }); Text("إضافة ضريبة القيمة المضافة", color = Color.White) } }
         if (vatOn) item { Field("نسبة الضريبة %", vatRate, KeyboardType.Decimal) { vatRate = it } }
         item { Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("الإجمالي قبل الخصم: %.2f ج.م".format(subtotal), color = Color.White)
-                Text("الخصم: %.2f ج.م".format(discount), color = MaterialTheme.colorScheme.primary)
-                Text("الصافي الخاضع للضريبة: %.2f ج.م".format(netSubtotal), color = Color.White)
+                Text("الإجمالي قبل الضريبة: %.2f ج.م".format(subtotal), color = Color.White)
                 Text("الضريبة: %.2f ج.م".format(vat), color = Muted)
-                Text("الإجمالي النهائي: %.2f ج.م".format(netSubtotal + vat), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 19.sp)
+                Text("الإجمالي النهائي: %.2f ج.م".format(subtotal + vat), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 19.sp)
             }
         } }
         item { Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(includeQr, { includeQr = it }); Text("إضافة رمز QR لبيانات العرض", color = Color.White) } }
-        item { Text("حالة العرض", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
-        item { Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            listOf("DRAFT" to "مسودة", "SENT" to "مرسل", "APPROVED" to "معتمد", "REJECTED" to "مرفوض", "EXPIRED" to "منتهي").forEach { (value, label) ->
-                FilterChip(selected = documentStatus == value, onClick = { documentStatus = value }, label = { Text(label) })
-            }
-        } }
-        item { Text("الشروط والأحكام الإضافية", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
-        item { Field("صلاحية العرض بالأيام", validityDays, KeyboardType.Number) { validityDays = it } }
-        item { Field("مدة التنفيذ", executionDuration) { executionDuration = it } }
-        item { Field("شروط ومواعيد السداد", paymentTerms) { paymentTerms = it } }
-        item { Field("طريقة الدفع", paymentMethod) { paymentMethod = it } }
-        item { Field("مدة الضمان (اختياري)", warranty) { warranty = it } }
-        item { Field("الأعمال غير المشمولة (اختياري)", exclusions) { exclusions = it } }
+        item { Text("الشروط والأحكام", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
+        item { Field("مدة صلاحية العرض بالأيام", validityDays, KeyboardType.Number) { validityDays = it } }
         item { Field("ملاحظات إضافية", notes) { notes = it } }
         item { Button(onClick = {
-            val meta = org.json.JSONObject().put("recipient", recipient.trim())
+            val meta = org.json.JSONObject()
                 .put("attention", attention.trim()).put("scope", scopeText.trim())
                 .put("validityDays", validityDays.toIntOrNull()?.coerceAtLeast(1) ?: 30)
-                .put("executionDuration", executionDuration.trim()).put("paymentTerms", paymentTerms.trim())
-                .put("paymentMethod", paymentMethod.trim()).put("warranty", warranty.trim())
-                .put("exclusions", exclusions.trim()).put("discountAmount", discount).put("status", documentStatus).put("includeQr", includeQr).toString()
+                .put("includeQr", includeQr).toString()
             save(doc?.id, kind, client, phone, title, lines.map { it.input() }, vatOn, rate, notes, meta)
         }, modifier = Modifier.fillMaxWidth()) { Text(if (doc == null) "حفظ المستند" else "حفظ التعديلات") } }
     }

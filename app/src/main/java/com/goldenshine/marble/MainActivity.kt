@@ -111,6 +111,7 @@ private fun GoldenShineApp() {
 
 @Composable
 private fun HomeScreen(modifier: Modifier, onNew: () -> Unit, onList: () -> Unit, onBackup: () -> Unit, onRestore: () -> Unit) {
+    var confirmRestore by remember { mutableStateOf(false) }
     Column(modifier.fillMaxSize().padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("GOLDEN SHINE", color = Gold, fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
         Text("MARBLE", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
@@ -122,9 +123,16 @@ private fun HomeScreen(modifier: Modifier, onNew: () -> Unit, onList: () -> Unit
         Text("• تعديل المستندات مع الاحتفاظ برقمها", color = Muted)
         Text("• PDF عربي أو إنجليزي", color = Muted)
         OutlinedButton(onClick = onBackup, modifier = Modifier.fillMaxWidth()) { Text("إنشاء نسخة احتياطية") }
-        OutlinedButton(onClick = onRestore, modifier = Modifier.fillMaxWidth()) { Text("استعادة نسخة احتياطية") }
+        OutlinedButton(onClick = { confirmRestore = true }, modifier = Modifier.fillMaxWidth()) { Text("استعادة نسخة احتياطية") }
         Text("تحذير: الاستعادة تستبدل الأرشيف الحالي بالكامل.", color = Muted, fontSize = 12.sp)
     }
+    if (confirmRestore) AlertDialog(
+        onDismissRequest = { confirmRestore = false },
+        title = { Text("تأكيد استعادة النسخة") },
+        text = { Text("سيتم حذف الأرشيف الحالي واستبداله بالمستندات الموجودة في ملف النسخة الاحتياطية. هل تريد المتابعة؟") },
+        confirmButton = { TextButton(onClick = { confirmRestore = false; onRestore() }) { Text("متابعة") } },
+        dismissButton = { TextButton(onClick = { confirmRestore = false }) { Text("إلغاء") } }
+    )
 }
 
 @Composable
@@ -154,8 +162,8 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, save:
     LazyColumn(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
         item { Text(if (doc == null) "إنشاء مستند" else "تعديل " + doc.documentNumber, color = Gold, fontSize = 22.sp, fontWeight = FontWeight.Bold) }
         item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(kind == DocumentKind.QUOTATION, { kind = DocumentKind.QUOTATION }, label = { Text("عرض سعر") })
-            FilterChip(kind == DocumentKind.CONTRACT, { kind = DocumentKind.CONTRACT }, label = { Text("عقد مقاولة") })
+            FilterChip(kind == DocumentKind.QUOTATION, { kind = DocumentKind.QUOTATION }, enabled = doc == null, label = { Text("عرض سعر") })
+            FilterChip(kind == DocumentKind.CONTRACT, { kind = DocumentKind.CONTRACT }, enabled = doc == null, label = { Text("عقد مقاولة") })
         } }
         item { Field("اسم العميل *", client) { client = it } }
         item { Field("رقم الهاتف", phone, KeyboardType.Phone) { phone = it } }

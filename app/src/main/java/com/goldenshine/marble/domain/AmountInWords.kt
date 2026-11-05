@@ -61,7 +61,7 @@ object AmountInWords {
         val parts = mutableListOf<String>()
         if (pounds > 0 || piasters == 0) parts += poundText
         if (piasters > 0) parts += piasterText
-        return parts.joinToString(" and ") + " only"
+        return (parts.joinToString(" and ") + " only").replaceFirstChar { it.uppercase() }
     }
 
     private fun arabicNumber(value: Long): String {

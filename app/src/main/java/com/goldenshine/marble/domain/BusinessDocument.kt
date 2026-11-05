@@ -16,12 +16,13 @@ sealed interface DocumentLine {
     data class LumpSum(override val description: String, val amount: Double) : DocumentLine
 }
 
-data class DocumentTotals(val subtotal: Double, val vat: Double, val total: Double)
+data class DocumentTotals(val subtotal: Double, val vat: Double, val total: Double, val discount: Double = 0.0)
 
 object DocumentPricing {
-    fun calculate(lines: List<DocumentLine>, treatment: VatTreatment, vatRate: Double = 14.0): DocumentTotals {
+    fun calculate(lines: List<DocumentLine>, treatment: VatTreatment, vatRate: Double = 14.0, discount: Double = 0.0): DocumentTotals {
         require(lines.isNotEmpty()) { "أضف بنداً واحداً على الأقل" }
         require(vatRate.isFinite() && vatRate >= 0.0) { "نسبة الضريبة غير صحيحة" }
+        require(discount.isFinite() && discount >= 0.0) { "قيمة الخصم غير صحيحة" }
         val raw = lines.sumOf { line ->
             when (line) {
                 is DocumentLine.SquareMeter -> {
@@ -37,8 +38,10 @@ object DocumentPricing {
         }
         require(raw.isFinite()) { "قيمة المستند أكبر من النطاق المسموح" }
         val subtotal = raw.money()
-        val vat = if (treatment == VatTreatment.ADD_TO_TOTAL) (subtotal * vatRate / 100.0).money() else 0.0
-        return DocumentTotals(subtotal, vat, (subtotal + vat).money())
+        require(discount <= subtotal) { "الخصم لا يمكن أن يتجاوز إجمالي البنود" }
+        val net = (subtotal - discount).money()
+        val vat = if (treatment == VatTreatment.ADD_TO_TOTAL) (net * vatRate / 100.0).money() else 0.0
+        return DocumentTotals(subtotal, vat, (net + vat).money(), discount.money())
     }
 
     private fun Double.money() = BigDecimal.valueOf(this).setScale(2, RoundingMode.HALF_UP).toDouble()

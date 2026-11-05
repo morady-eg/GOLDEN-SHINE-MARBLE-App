@@ -26,4 +26,4 @@ gradle :app:assembleDebug
 بعد نجاح GitHub Actions يتم نشر ملف APK ضمن صفحة Releases وإرفاقه أيضاً كـ Artifact باسم `GOLDEN-SHINE-MARBLE-APK`.
 
 ## ملاحظات الإصدار
-ملف APK الناتج حالياً هو إصدار Debug موقع بمفتاح Android debug الافتراضي، وليس إصداراً إنتاجياً موقعاً بمفتاح الشركة. يلزم إعداد مفتاح الشركة وأسراره داخل GitHub Actions قبل توزيع نسخة إنتاجية نهائية. كما يجب اختبار التثبيت وسلوك التطبيق على جهاز Android فعلي قبل اعتماده نهائياً.
+ملف APK الناتج حالياً هو إصدار Debug موقع بمفتاح Android debug الافتراضي، وليس إصداراً إنتاجياً موقعاً بمفتاح الشركة. لإنتاج APK ثابت التوقيع قابل للتحديث فوق الإصدارات السابقة، أضف أسرار المستودع التالية من Settings ثم Secrets and variables ثم Actions: `ANDROID_KEYSTORE_BASE64` و`ANDROID_KEYSTORE_PASSWORD` و`ANDROID_KEY_ALIAS` و`ANDROID_KEY_PASSWORD`. عند غيابها ينشر CI نسخة Debug للتجربة فقط. كما يجب اختبار التثبيت وسلوك التطبيق على جهاز Android فعلي قبل اعتماده نهائياً.

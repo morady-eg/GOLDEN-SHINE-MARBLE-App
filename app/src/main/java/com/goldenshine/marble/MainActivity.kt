@@ -178,12 +178,12 @@ private fun GoldenShineApp() {
 private fun HomeScreen(modifier: Modifier, onNew: () -> Unit, onList: () -> Unit, onBackup: () -> Unit, onRestore: () -> Unit) {
     var confirmRestore by remember { mutableStateOf(false) }
     Column(modifier.fillMaxSize().padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("GOLDEN SHINE", color = Gold, fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
+        Text("GOLDEN SHINE", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
         Text("MARBLE", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
         Text("إدارة عروض الأسعار وعقود المقاولات", color = Muted)
         Button(onClick = onNew, modifier = Modifier.fillMaxWidth()) { Text("إنشاء مستند جديد") }
         OutlinedButton(onClick = onList, modifier = Modifier.fillMaxWidth()) { Text("فتح الأرشيف") }
-        Divider(color = Gold.copy(alpha = .4f))
+        Divider(color = MaterialTheme.colorScheme.primary.copy(alpha = .4f))
         Text("• بنود متعددة بالمتر المربع أو بالمقطوعية", color = Muted)
         Text("• تعديل المستندات مع الاحتفاظ برقمها", color = Muted)
         Text("• PDF عربي أو إنجليزي", color = Muted)

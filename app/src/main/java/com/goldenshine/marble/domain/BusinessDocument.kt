@@ -21,20 +21,21 @@ data class DocumentTotals(val subtotal: Double, val vat: Double, val total: Doub
 object DocumentPricing {
     fun calculate(lines: List<DocumentLine>, treatment: VatTreatment, vatRate: Double = 14.0): DocumentTotals {
         require(lines.isNotEmpty()) { "أضف بنداً واحداً على الأقل" }
-        require(vatRate >= 0.0) { "نسبة الضريبة لا يمكن أن تكون سالبة" }
+        require(vatRate.isFinite() && vatRate >= 0.0) { "نسبة الضريبة غير صحيحة" }
         val raw = lines.sumOf { line ->
             when (line) {
                 is DocumentLine.SquareMeter -> {
                     require(line.description.isNotBlank())
-                    require(line.quantity > 0.0 && line.unitPrice >= 0.0)
+                    require(line.quantity.isFinite() && line.unitPrice.isFinite() && line.quantity > 0.0 && line.unitPrice >= 0.0)
                     line.quantity * line.unitPrice
                 }
                 is DocumentLine.LumpSum -> {
-                    require(line.description.isNotBlank() && line.amount >= 0.0)
+                    require(line.description.isNotBlank() && line.amount.isFinite() && line.amount >= 0.0)
                     line.amount
                 }
             }
         }
+        require(raw.isFinite()) { "قيمة المستند أكبر من النطاق المسموح" }
         val subtotal = raw.money()
         val vat = if (treatment == VatTreatment.ADD_TO_TOTAL) (subtotal * vatRate / 100.0).money() else 0.0
         return DocumentTotals(subtotal, vat, (subtotal + vat).money())

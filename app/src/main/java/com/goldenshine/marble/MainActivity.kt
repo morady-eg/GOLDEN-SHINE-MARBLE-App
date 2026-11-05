@@ -223,6 +223,7 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, known
     var exclusions by remember(doc?.id) { mutableStateOf(savedMeta.optString("exclusions")) }
     var discountText by remember(doc?.id) { mutableStateOf(savedMeta.optString("discountAmount", "0")) }
     var documentStatus by remember(doc?.id) { mutableStateOf(savedMeta.optString("status", "DRAFT")) }
+    var includeQr by remember(doc?.id) { mutableStateOf(savedMeta.optBoolean("includeQr", true)) }
     val lines = remember(doc?.id) {
         mutableStateListOf<LineDraft>().apply {
             if (doc == null) add(LineDraft()) else {
@@ -301,6 +302,7 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, known
                 Text("الإجمالي النهائي: %.2f ج.م".format(netSubtotal + vat), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 19.sp)
             }
         } }
+        item { Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(includeQr, { includeQr = it }); Text("إضافة رمز QR لبيانات العرض", color = Color.White) } }
         item { Text("حالة العرض", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
         item { Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             listOf("DRAFT" to "مسودة", "SENT" to "مرسل", "APPROVED" to "معتمد", "REJECTED" to "مرفوض", "EXPIRED" to "منتهي").forEach { (value, label) ->
@@ -321,7 +323,7 @@ private fun DocumentForm(modifier: Modifier, doc: BusinessDocumentEntity?, known
                 .put("validityDays", validityDays.toIntOrNull()?.coerceAtLeast(1) ?: 30)
                 .put("executionDuration", executionDuration.trim()).put("paymentTerms", paymentTerms.trim())
                 .put("paymentMethod", paymentMethod.trim()).put("warranty", warranty.trim())
-                .put("exclusions", exclusions.trim()).put("discountAmount", discount).put("status", documentStatus).toString()
+                .put("exclusions", exclusions.trim()).put("discountAmount", discount).put("status", documentStatus).put("includeQr", includeQr).toString()
             save(doc?.id, kind, client, phone, title, lines.map { it.input() }, vatOn, rate, notes, meta)
         }, modifier = Modifier.fillMaxWidth()) { Text(if (doc == null) "حفظ المستند" else "حفظ التعديلات") } }
     }

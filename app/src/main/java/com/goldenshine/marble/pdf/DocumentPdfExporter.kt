@@ -239,9 +239,8 @@ object DocumentPdfExporter {
         text((if (ar) "رقم العرض: " else "Quotation No: ") + document.documentNumber, if (ar) PAGE_WIDTH-margin else margin, y, body)
         text((if (ar) "التاريخ: " else "Date: ") + java.text.SimpleDateFormat("dd/MM/yyyy", if (ar) Locale("ar") else Locale.US).format(java.util.Date(document.createdAt)), if (ar) margin else PAGE_WIDTH-margin, y, body)
         y += 24f
-        val recipient = meta.optString("recipient", document.clientName)
         val attention = meta.optString("attention")
-        text((if (ar) "السادة / " else "To: ") + recipient, if (ar) PAGE_WIDTH-margin else margin, y, body); y += 19f
+        text((if (ar) "السادة / " else "To: ") + document.clientName, if (ar) PAGE_WIDTH-margin else margin, y, body); y += 19f
         if (attention.isNotBlank()) { text((if (ar) "عناية / " else "Attn: ") + attention, if (ar) PAGE_WIDTH-margin else margin, y, body); y += 19f }
         text(if (ar) "تحية طيبة وبعد،" else "Dear Sir/Madam,", center, y, bold, Paint.Align.CENTER); y += 24f
         wrapped(if (ar) "نتشرف نحن شركة جولدن شاين ماربل بتقديم عرضنا المالي لسيادتكم بخصوص الأعمال الآتي ذكرها." else "Golden Shine Marble is pleased to submit our financial quotation for the following scope of work.", if (ar) PAGE_WIDTH-margin else margin)
@@ -295,11 +294,6 @@ object DocumentPdfExporter {
         if (y > CONTENT_BOTTOM - 130f) nextPage()
         val summaryX = if (ar) right else left
         text((if (ar) "الإجمالي قبل الخصم: " else "Subtotal before discount: ") + money(document.subtotal) + if (ar) " ج.م" else " EGP", summaryX, y, body); y += 19f
-        val discountAmount = meta.optDouble("discountAmount", 0.0)
-        if (discountAmount > 0.0) {
-            text((if (ar) "الخصم: -" else "Discount: -") + money(discountAmount) + if (ar) " ج.م" else " EGP", summaryX, y, body)
-            y += 19f
-        }
         text((if (ar) "ضريبة القيمة المضافة (" else "VAT (") + number(document.vatRate) + "%): " + money(document.vatAmount) + if (ar) " ج.م" else " EGP", summaryX, y, body); y += 22f
         text((if (ar) "الإجمالي النهائي: " else "GRAND TOTAL: ") + money(document.total) + if (ar) " جنيه مصري" else " EGP", summaryX, y, bold); y += 25f
         if (y > CONTENT_BOTTOM - 75f) nextPage()
@@ -330,14 +324,6 @@ object DocumentPdfExporter {
         terms += if (ar) "1. السعر ${if (document.vatTreatment == "ADD_TO_TOTAL") "شامل" else "غير شامل"} ضريبة القيمة المضافة." else "1. VAT is ${if (document.vatTreatment == "ADD_TO_TOTAL") "included" else "excluded"} as stated above."
         terms += if (ar) "2. جميع التعاملات بالجنيه المصري." else "2. All transactions are in Egyptian Pounds (EGP)."
         terms += if (ar) "3. عرض السعر ساري لمدة ${meta.optInt("validityDays", 30).coerceAtLeast(1)} يوم من تاريخه." else "3. This quotation is valid for ${meta.optInt("validityDays", 30).coerceAtLeast(1)} days from its date."
-        listOf("executionDuration" to if (ar) "مدة التنفيذ: " else "Execution: ",
-            "paymentTerms" to if (ar) "شروط السداد: " else "Payment terms: ",
-            "paymentMethod" to if (ar) "طريقة الدفع: " else "Payment method: ",
-            "warranty" to if (ar) "الضمان: " else "Warranty: ",
-            "exclusions" to if (ar) "الأعمال غير المشمولة: " else "Exclusions: ").forEach { (key, label) ->
-            val value = meta.optString(key)
-            if (value.isNotBlank()) terms += "${terms.size + 1}. $label$value"
-        }
         terms.forEach { wrapped(it, summaryX, 88, body) }
         y += 8f
         if (y > CONTENT_BOTTOM - 70f) nextPage()

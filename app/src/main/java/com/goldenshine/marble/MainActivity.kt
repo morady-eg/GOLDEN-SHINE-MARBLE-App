@@ -103,7 +103,7 @@ private fun GoldenShineApp() {
                                 runCatching { context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/pdf").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) }
                                     .onFailure { Toast.makeText(context, "تم حفظ الملف، لكن لا يوجد تطبيق لعرض PDF", Toast.LENGTH_LONG).show() }
                             }
-                            .onFailure { Toast.makeText(context, it.message ?: "تعذر إنشاء PDF", Toast.LENGTH_LONG).show() },
+                            .onFailure { Toast.makeText(context, it.message ?: "تعذر إنشاء PDF", Toast.LENGTH_LONG).show() } },
                         onShare = { doc -> runCatching { DocumentPdfExporter.save(context, doc, "ar") }
                             .onSuccess { uri ->
                                 val intent = Intent(Intent.ACTION_SEND).apply {

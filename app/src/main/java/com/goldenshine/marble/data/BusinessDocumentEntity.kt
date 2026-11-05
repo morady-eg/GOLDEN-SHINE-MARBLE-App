@@ -1,5 +1,6 @@
 package com.goldenshine.marble.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -25,5 +26,6 @@ data class BusinessDocumentEntity(
     val total: Double,
     val notes: String,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    @ColumnInfo(defaultValue = "'{}'") val quotationMetaJson: String = "{}"
 )
